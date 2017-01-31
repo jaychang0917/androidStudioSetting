@@ -183,6 +183,64 @@ simpleRecyclerView.addCells(cells);
 SimpleRecyclerView provides basic CRUD cell operations. 
 >[Full cell operations list](#cell_ops_list)
 
+It is common that loading cache data first and then fetch new data from network to update the list. The library provides `addOrUpdateCell()` and `addOrUpdateCells()` operation to achieve that. The cells will not be updated (i.e. receive `onBindViewHolder()` callback) if their bounded data models are the same, otherwsie they will be added to the end of list. 
+To enable this feature, the cells must be implemented `Updatable` interface.
+```java
+public interface Updatable<T> {
+
+  boolean areContentsTheSame(T newItem);
+
+  Object getChangePayload(T newItem);
+
+}
+```
+```java
+public class BookCell extends SimpleCell<Book, BookCell.ViewHolder>
+  implements Updatable<Book> {
+
+  ...
+
+  @Override
+  protected void onBindViewHolder(ViewHolder holder, int position, Context context, Object payload) {
+    if (payload != null) {
+      // partial update
+      if (payload instanceof Bundle) {
+        Bundle bundle = ((Bundle) payload);
+        for (String key : bundle.keySet()) {
+          if (KEY_TITLE.equals(key)) {
+            holder.textView.setText(bundle.getString(key));
+          }
+        }
+      }
+      return;
+    }
+    ...
+  }
+  
+  /**
+   * If the titles of books are same, no need to update the cell, onBindViewHolder() will not be called.
+   */
+  @Override
+  public boolean areContentsTheSame(Book newItem) {
+    return getItem().getTitle().equals(newItem.getTitle());
+  }
+
+  /**
+   * If getItem() is the same as newItem (i.e. their return value of getItemId() are the same)
+   * and areContentsTheSame()  return false, then the cell need to be updated,
+   * onBindViewHolder() will be called with this payload object.
+   * */
+  @Override
+  public Object getChangePayload(Book newItem) {
+    Bundle bundle = new Bundle();
+    bundle.putString(KEY_TITLE, newItem.getTitle());
+    return bundle;
+  }
+  
+  ...
+}
+```
+
 ##<a name=divider>Divider</a>
 ```xml
 <com.jaychang.srv.SimpleRecyclerView
@@ -408,8 +466,8 @@ simpleRecyclerView.enableSwipeToDismiss(swipeToDismissCallback, LEFT, RIGHT);
 | removeCells(int fromPosition) | Remove range of cells `[fromPosition..end]` from list |
 | removeAllCells() | Remove all cells from list |
 | removeAllCells(boolean showEmptyStateView) | Remove all cells from list and tell the SimpleRecyclerView if need to show empty state view. Default `true` |
-| updateCell(int atPosition, Object payload) | Update the specific cell with payload. The cell being updated should be implemented `Updatable` interface |
-| updateCells(int fromPosition, int toPosition, Object payloads) | Update the range of cells `[fromPosition..toPosition]` with payloads. The cell being updated should be implemented `Updatable` interface
+| updateCell(int atPosition, Object payload) | Update the specific cell with payload. |
+| updateCells(int fromPosition, int toPosition, List<Object> payloads) | Update the range of cells `[fromPosition..toPosition]` with payloads.｜
 | getCell(int atPosition) | Get the cell at specific postion |
 | getCells(int fromPosition, int toPosition) | Get a range of cells `[fromPosition..toPosition]` |
 | getAllCells() | Get all cells |
